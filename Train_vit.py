@@ -2,24 +2,12 @@ import torch
 from torch import nn
 from d2l import torch as d2l
 from Model.ViTBasedTinySSD import ViTBasedTinySSD
-from Utils.Data_loader_Vit import load_data
+from Utils.Data_loader import load_data
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import argparse
 import os
 from Utils.Visualization_vit import predict_and_visualize
-from torchvision import transforms
-
-def preprocess_test_data(test_batch):
-    """테스트 데이터 변환."""
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # 모델 입력 크기로 변환
-        transforms.ToTensor()
-    ])
-    test_img_tensor, test_label = test_batch
-    test_img_tensor = torch.stack([transform(img) for img in test_img_tensor])
-    return test_img_tensor, test_label
-
 
 def calc_loss(cls_preds, cls_labels, bbox_preds, bbox_labels, bbox_masks):
     """
@@ -140,21 +128,22 @@ def train_model(net, train_iter, valid_iter, num_epochs, device):
     plt.title('Training and Validation BBox MAE')
 
     plt.tight_layout()
-    plt.savefig("./ViTBasedTinySSD/ViTBasedTinySSD_loss_graph.png", dpi=300)
+    plt.savefig("./Result/ViTBasedTinySSD/ViTBasedTinySSD_loss_graph.png", dpi=300)
     plt.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='ViT 기반 TinySSD 모델 학습 및 테스트')
+    # argparse를 이용해 사용자 입력 받기
+    parser = argparse.ArgumentParser(description='TinySSD 모델 학습 및 테스트')
     parser.add_argument('--batch_size', type=int, default=32, help='배치 크기 (기본값: 32)')
-    parser.add_argument('--num_epochs', type=int, default=15, help='에포크 수 (기본값: 30)')
+    parser.add_argument('--num_epochs', type=int, default=15, help='에포크 수 (기본값: 5)')
     parser.add_argument('--threshold', type=float, default=0.9, help='검출 클래스 최소 신뢰도 (기본값: 0.9)')
     args = parser.parse_args()
 
     # 데이터 로드
     train_iter, valid_iter = load_data(args.batch_size)
 
-    # ViT 기반 TinySSD 모델 정의
+    # TinySSD 모델 정의
     device = d2l.try_gpu()
     net = ViTBasedTinySSD(num_classes=2).to(device)
 
@@ -163,11 +152,10 @@ if __name__ == "__main__":
 
     # 테스트 데이터에서 예측 및 시각화
     test_batch = next(iter(train_iter))
-    test_img_tensor, test_label = preprocess_test_data(test_batch)  # 전처리 적용
+    test_img_tensor, test_label = test_batch
     test_img_tensor = test_img_tensor[0].unsqueeze(0)
     visual_img = test_img_tensor.squeeze(0).permute(1, 2, 0)
 
-    # 바운딩 박스 검출 및 시각화
+    # 바운딩 박스 검출 및 시각화 (threshold를 사용자 입력으로 설정)
     predict_and_visualize(net, test_img_tensor.to(device), visual_img, threshold=args.threshold)
-
 

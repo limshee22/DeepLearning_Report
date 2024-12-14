@@ -34,24 +34,3 @@ def predict_and_visualize(net, X, img, threshold=0.9):
     plt.savefig("./Result/ViTBasedTinySSD/ViTBasedTinySSD.png", dpi=300)
     plt.close()
 
-import matplotlib.pyplot as plt
-import torchvision
-
-def predict_and_visualize_vit(net, X, visual_img, threshold=0.9):
-    net.eval()
-    anchors, cls_preds, bbox_preds = net(X)
-    cls_probs = torch.softmax(cls_preds, dim=1)
-    detected_boxes = []
-    for i, prob in enumerate(cls_probs):
-        if prob[1] > threshold:
-            bbox = bbox_preds[i]
-            detected_boxes.append(bbox.detach().cpu().numpy())
-    plt.figure(figsize=(10, 10))
-    plt.imshow(visual_img.cpu())
-    for bbox in detected_boxes:
-        x, y, w, h = bbox
-        rect = plt.Rectangle((x-w/2, y-h/2), w, h, fill=False, edgecolor='red', linewidth=2)
-        plt.gca().add_patch(rect)
-    plt.axis('off')
-    plt.savefig('./Result/ViTBasedTinySSD/ViTBasedTinySSD_detection_result.png')
-    plt.close()
