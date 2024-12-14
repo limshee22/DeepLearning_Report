@@ -10,9 +10,6 @@ import os
 from Utils.Visualization_vit import predict_and_visualize
 
 def calc_loss(cls_preds, cls_labels, bbox_preds, bbox_labels, bbox_masks):
-    """
-    클래스 손실 및 바운딩 박스 손실 계산.
-    """
     cls_loss = nn.CrossEntropyLoss(reduction='none')
     bbox_loss = nn.L1Loss(reduction='none')
 
@@ -23,23 +20,14 @@ def calc_loss(cls_preds, cls_labels, bbox_preds, bbox_labels, bbox_masks):
 
 
 def cls_eval(cls_preds, cls_labels):
-    """
-    클래스 예측 정확도 계산.
-    """
     return float((cls_preds.argmax(dim=-1).type(cls_labels.dtype) == cls_labels).sum())
 
 
 def bbox_eval(bbox_preds, bbox_labels, bbox_masks):
-    """
-    바운딩 박스 MAE 계산.
-    """
     return float((torch.abs((bbox_labels - bbox_preds) * bbox_masks)).sum())
 
 
 def train_model(net, train_iter, valid_iter, num_epochs, device):
-    """
-    TinySSD 모델 학습 및 검증.
-    """
     trainer = torch.optim.SGD(net.parameters(), lr=0.2, weight_decay=5e-4)
 
     train_losses = []
@@ -53,7 +41,6 @@ def train_model(net, train_iter, valid_iter, num_epochs, device):
     best_model_path = None
 
     for epoch in range(num_epochs):
-        # Training Phase
         metric = d2l.Accumulator(4)
         net.train()
         train_loss_sum = 0
@@ -74,7 +61,6 @@ def train_model(net, train_iter, valid_iter, num_epochs, device):
         train_bbox_maes.append(metric[2] / metric[3])
         print(f'Epoch {epoch+1}, Training Class Error: {train_cls_errors[-1]:.2e}, Training BBox MAE: {train_bbox_maes[-1]:.2e}')
 
-        # Validation Phase
         net.eval()
         valid_loss_sum = 0
         with torch.no_grad():
@@ -93,23 +79,18 @@ def train_model(net, train_iter, valid_iter, num_epochs, device):
             valid_bbox_maes.append(metric[2] / metric[3])
             print(f'Epoch {epoch+1}, Validation Class Error: {valid_cls_errors[-1]:.2e}, Validation BBox MAE: {valid_bbox_maes[-1]:.2e}')
 
-        # 체크포인트 저장
         checkpoint_path = f'./Result/ViTBasedTinySSD/checkpoint_epoch_{epoch+1}.pth'
         torch.save(net.state_dict(), checkpoint_path)
         print(f'Checkpoint saved: {checkpoint_path}')
 
-        # 최적의 모델 저장
         if valid_cls_errors[-1] < best_valid_cls_err:
             best_valid_cls_err = valid_cls_errors[-1]
             best_model_path = f'./Result/ViTBasedTinySSD/best_model_epoch.pth'
             torch.save(net.state_dict(), best_model_path)
             print(f'Best model updated: {best_model_path}')
 
-    # 손실 값 및 오류 시각화
     plt.figure(figsize=(15, 7))
 
-
-    # Class Error
     plt.subplot(3, 1, 2)
     plt.plot(range(1, num_epochs + 1), train_cls_errors, label='Training Class Error')
     plt.plot(range(1, num_epochs + 1), valid_cls_errors, label='Validation Class Error')
@@ -118,7 +99,6 @@ def train_model(net, train_iter, valid_iter, num_epochs, device):
     plt.legend()
     plt.title('Training and Validation Class Error')
 
-    # BBox MAE
     plt.subplot(3, 1, 3)
     plt.plot(range(1, num_epochs + 1), train_bbox_maes, label='Training BBox MAE')
     plt.plot(range(1, num_epochs + 1), valid_bbox_maes, label='Validation BBox MAE')
@@ -133,29 +113,22 @@ def train_model(net, train_iter, valid_iter, num_epochs, device):
 
 
 if __name__ == "__main__":
-    # argparse를 이용해 사용자 입력 받기
     parser = argparse.ArgumentParser(description='TinySSD 모델 학습 및 테스트')
     parser.add_argument('--batch_size', type=int, default=32, help='배치 크기 (기본값: 32)')
     parser.add_argument('--num_epochs', type=int, default=15, help='에포크 수 (기본값: 5)')
     parser.add_argument('--threshold', type=float, default=0.9, help='검출 클래스 최소 신뢰도 (기본값: 0.9)')
     args = parser.parse_args()
 
-    # 데이터 로드
     train_iter, valid_iter = load_data(args.batch_size)
 
-    # TinySSD 모델 정의
     device = d2l.try_gpu()
     net = ViTBasedTinySSD(num_classes=2).to(device)
 
-    # 모델 학습
     train_model(net, train_iter, valid_iter, num_epochs=args.num_epochs, device=device)
 
-    # 테스트 데이터에서 예측 및 시각화
     test_batch = next(iter(train_iter))
     test_img_tensor, test_label = test_batch
     test_img_tensor = test_img_tensor[0].unsqueeze(0)
     visual_img = test_img_tensor.squeeze(0).permute(1, 2, 0)
 
-    # 바운딩 박스 검출 및 시각화 (threshold를 사용자 입력으로 설정)
     predict_and_visualize(net, test_img_tensor.to(device), visual_img, threshold=args.threshold)
-
